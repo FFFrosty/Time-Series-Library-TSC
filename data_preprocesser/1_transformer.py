@@ -8,7 +8,7 @@ output_ts_file = "SensorData.ts"  # 输出的 .ts 文件名
 problem_name = "SensorClassification"
 
 sensors = ["FirstA", "LaLi", "SecA"]
-classes = [1, 2, 3, 4, 5, 6, 7]
+classes = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7']
 
 X_all = []
 y_all = []
@@ -16,11 +16,11 @@ y_all = []
 # ================= 2. 读取并重组数据 =================
 print("开始读取和重组数据...")
 
-for c in classes:
+for c, label_ in enumerate(classes):
     class_data = []  # 临时存放当前类别的 3 个传感器数据
 
     for sensor in sensors:
-        filename = f"{sensor}{c}.xlsx"
+        filename = f"{sensor}{c+1}.xlsx"
         filepath = os.path.join(data_dir, filename)
 
         print(f"正在读取: {filename} ...")
@@ -40,7 +40,7 @@ for c in classes:
 
     # 生成对应的标签，当前类别有 200 个样本
     num_samples = class_X.shape[0]
-    class_y = np.full(num_samples, c)
+    class_y = np.full(num_samples, label_)
     y_all.append(class_y)
 
 # 沿样本维度(axis=0)合并所有 7 个类别的数据
@@ -79,8 +79,10 @@ def write_to_ts(X, y, output_file, dataset_name):
                 series_str = ",".join(X[i, j, :].astype(str))
                 dimensions.append(series_str)
 
-            # 用冒号连接 3 个传感器的序列，行末加上标签
-            instance_str = ":".join(dimensions) + f",{y[i]}\n"
+            # 将类别标签也转为字符串并加入列表
+            dimensions.append(str(y[i]))
+            # 用冒号统一连接所有变量以及最后的类别标签
+            instance_str = ":".join(dimensions) + "\n"
             f.write(instance_str)
 
 
