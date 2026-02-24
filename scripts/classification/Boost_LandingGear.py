@@ -44,7 +44,7 @@ if __name__ == '__main__':
 
     # 或者只运行你想运行的实验
     dataset = 'LandingGear'
-    run_experiment(dataset, seq_len=7990)
+    run_experiment(dataset, seq_len=3000)
 
     # if len(sys.argv) > 1:
     #     # 从命令行参数指定数据集
