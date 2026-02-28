@@ -21,7 +21,7 @@ def run_experiment(dataset_name, **kwargs):
         'python', '-u', run_py_path,
         '--task_name', 'classification',
         '--is_training', '1',
-        '--model', 'RandomForest',
+        '--model', 'XGBoost',
         '--data', 'UEA',
         '--batch_size', '8'
     ]
@@ -44,7 +44,7 @@ if __name__ == '__main__':
 
     # 或者只运行你想运行的实验
     dataset = 'LandingGearFull'
-    run_experiment(dataset, seq_len=7990, random_state=2024)
+    run_experiment(dataset, seq_len=7990, random_state=2026)
 
     # if len(sys.argv) > 1:
     #     # 从命令行参数指定数据集

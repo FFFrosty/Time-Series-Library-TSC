@@ -2,14 +2,32 @@ import argparse
 import os
 import numpy as np
 from tqdm import tqdm
+import time
 
 # ================= 替换为分类器 =================
 from sklearn.ensemble import RandomForestClassifier, HistGradientBoostingClassifier
 from sklearn.base import BaseEstimator, ClassifierMixin
 from sklearn.metrics import accuracy_score, f1_score
+from sklearn.preprocessing import LabelEncoder  # 新增：用于处理标签编码
+
+# 新增：导入第三方 xgboost 库
+from xgboost import XGBClassifier
 
 # 导入 TSLib 原生的组件
 from data_provider.data_factory import data_provider
+
+import random
+import torch
+def fix_random_seed(seed):
+    """固定所有相关的随机种子，确保实验 100% 可复现"""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    # 针对 PyTorch 底层 CuDNN 的确定性设置 (虽然 ML 基线不用 GPU 计算，但严谨起见一并加上)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 
 class RocketWrapper(BaseEstimator, ClassifierMixin):
@@ -84,8 +102,8 @@ def main():
     parser.add_argument('--task_name', type=str, default='classification')
     parser.add_argument('--is_training', type=int, default=1)
     parser.add_argument('--model_id', type=str, default='test')
-    # 新增模型选项：HistGB, RandomForest, or Rocket
-    parser.add_argument('--model', type=str, default='HistGB', help='HistGB, RandomForest, or Rocket')
+    # 新增模型选项：XGBoost
+    parser.add_argument('--model', type=str, default='XGBoost', help='HistGB, RandomForest, Rocket, or XGBoost')
 
     # TSLib需要的参数
     parser.add_argument('--embed', type=str, default='timeF')
@@ -99,7 +117,7 @@ def main():
     parser.add_argument('--num_kernels', type=int, default=10000)
 
     # 数据相关参数
-    parser.add_argument('--data', type=str, default='UEA') # 分类常用 UEA 数据集
+    parser.add_argument('--data', type=str, default='UEA')  # 分类常用 UEA 数据集
     parser.add_argument('--root_path', type=str, default='./data/EthanolConcentration/')
     parser.add_argument('--data_path', type=str, default='EthanolConcentration_TEST.ts')
     parser.add_argument('--features', type=str, default='M')
@@ -118,16 +136,36 @@ def main():
 
     args = parser.parse_args()
 
+    # =========== 新增：在解析参数后立即固定全局种子 ===========
+    fix_random_seed(args.random_state)
+
     # 1. 提取数据
-    X_train, Y_train, _ = get_flattened_data(args, flag='train')
-    X_test, Y_test, _ = get_flattened_data(args, flag='test')
+    X_train, Y_train_raw, _ = get_flattened_data(args, flag='train')
+    X_test, Y_test_raw, _ = get_flattened_data(args, flag='test')
 
     enc_in = X_train.shape[1] // args.seq_len  # 自动推断特征维度
+
+    # ================= 新增：标签编码 =================
+    # XGBoost 强制要求分类标签必须是从 0 开始的整数 (0, 1, 2...)
+    # 使用 LabelEncoder 可以自动把字符串标签或非 0 起点的标签转换成标准格式
+    print("正在进行标签编码对齐...")
+    label_encoder = LabelEncoder()
+    Y_train = label_encoder.fit_transform(Y_train_raw)
+    Y_test = label_encoder.transform(Y_test_raw)
 
     # 2. 初始化分类模型
     print(f"\n初始化 {args.model} 分类器...")
 
-    if args.model == 'HistGB':
+    if args.model == 'XGBoost':
+        # 调用第三方 xgboost 库
+        model = XGBClassifier(
+            n_estimators=args.n_estimators,
+            learning_rate=0.1,
+            n_jobs=args.n_jobs,
+            random_state=args.random_state,
+            eval_metric='mlogloss'  # 避免输出警告信息
+        )
+    elif args.model == 'HistGB':
         # sklearn 中的高效直方图梯度提升分类树
         model = HistGradientBoostingClassifier(
             max_iter=args.n_estimators,
@@ -161,7 +199,7 @@ def main():
 
     # 5. 计算分类指标
     print("计算指标...")
-    # 分类任务主要看准确率 (Accuracy) 和 F1分数
+    # 计算指标时使用编码后的标签
     acc = accuracy_score(Y_test, Y_pred)
     f1 = f1_score(Y_test, Y_pred, average='macro')
 
@@ -171,7 +209,9 @@ def main():
     print(f"Macro F1: {f1:.4f}")
     print("==============================================================")
 
-    setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}'.format(
+    # 6. 保存结果
+    run_id = time.strftime("%m%d_%H%M%S")
+    setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_rs{}_{}'.format(
         args.task_name,
         args.model_id,
         args.model,
@@ -179,12 +219,28 @@ def main():
         args.features,
         args.seq_len,
         args.label_len,
-        args.pred_len,)
+        args.pred_len,
+        args.random_state,
+        run_id)
     folder_path = './results/' + setting + '/'
     if not os.path.exists(folder_path):
         os.makedirs(folder_path)
+
+    file_name = 'result_classification.txt'
+    f = open(os.path.join(folder_path, file_name), 'a')
+    f.write(setting + "  \n")
+    f.write('accuracy:{}'.format(acc))
+    f.write('f1:{}'.format(f1))
+    f.write('\n')
+    f.write('\n')
+    f.close()
+
+    # 保存预测结果和真实标签 (保存的是经过编码后的 0,1,2 格式，方便后续计算混淆矩阵)
     np.save(folder_path + 'pred.npy', Y_pred)
     np.save(folder_path + 'true.npy', Y_test)
+
+    # 如果你需要保存原始标签，可以将上面的 Y_test 改回 Y_test_raw，
+    # 并使用 label_encoder.inverse_transform(Y_pred) 还原预测标签后再保存。
 
 
 if __name__ == '__main__':
