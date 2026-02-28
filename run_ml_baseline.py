@@ -1,4 +1,5 @@
 import argparse
+import os
 import numpy as np
 from tqdm import tqdm
 
@@ -169,6 +170,21 @@ def main():
     print(f"Accuracy: {acc:.4f}")
     print(f"Macro F1: {f1:.4f}")
     print("==============================================================")
+
+    setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}'.format(
+        args.task_name,
+        args.model_id,
+        args.model,
+        args.data,
+        args.features,
+        args.seq_len,
+        args.label_len,
+        args.pred_len,)
+    folder_path = './results/' + setting + '/'
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+    np.save(folder_path + 'pred.npy', Y_pred)
+    np.save(folder_path + 'true.npy', Y_test)
 
 
 if __name__ == '__main__':
