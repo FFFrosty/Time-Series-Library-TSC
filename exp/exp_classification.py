@@ -188,4 +188,8 @@ class Exp_Classification(Exp_Basic):
         f.write('\n')
         f.write('\n')
         f.close()
+
+        np.save(folder_path + 'pred.npy', predictions)
+        np.save(folder_path + 'true.npy', trues)
+
         return
