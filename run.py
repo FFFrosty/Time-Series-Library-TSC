@@ -5,6 +5,7 @@ import torch.backends
 from utils.print_args import print_args
 import random
 import numpy as np
+import time
 
 if __name__ == '__main__':
     fix_seed = 2021
@@ -196,11 +197,12 @@ if __name__ == '__main__':
         from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
         Exp = Exp_Long_Term_Forecast
 
+    run_id = time.strftime("%m%d_%H%M%S")
     if args.is_training:
         for ii in range(args.itr):
             # setting record of experiments
             exp = Exp(args)  # set experiments
-            setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}'.format(
+            setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}_tm{}'.format(
                 args.task_name,
                 args.model_id,
                 args.model,
@@ -219,7 +221,7 @@ if __name__ == '__main__':
                 args.factor,
                 args.embed,
                 args.distil,
-                args.des, ii)
+                args.des, ii, run_id)
 
             print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
             exp.train(setting)
@@ -234,7 +236,7 @@ if __name__ == '__main__':
     else:
         exp = Exp(args)  # set experiments
         ii = 0
-        setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}'.format(
+        setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}_tm{}'.format(
             args.task_name,
             args.model_id,
             args.model,
@@ -253,7 +255,7 @@ if __name__ == '__main__':
             args.factor,
             args.embed,
             args.distil,
-            args.des, ii)
+            args.des, ii, run_id)
 
         print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
         exp.test(setting, test=1)
