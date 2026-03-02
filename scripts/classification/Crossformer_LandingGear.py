@@ -4,7 +4,7 @@ import sys
 import torch
 
 # 设置环境变量
-os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
 
 # 解决显存问题，该问题目前只在服务器上发现
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
@@ -24,7 +24,7 @@ def run_experiment(dataset_name, **kwargs):
         'python', '-u', run_py_path,
         '--task_name', 'classification',
         '--is_training', '1',
-        '--model', 'Transformer',
+        '--model', 'Crossformer',
         '--data', 'UEA',
         '--des', 'Exp',
         '--itr', '1',
@@ -32,7 +32,7 @@ def run_experiment(dataset_name, **kwargs):
         '--patience', '10',
         '--batch_size', '8',
         '--use_multi_gpu',
-        '--devices', '0,1,2,3',
+        '--devices', '0,1,2',
     ]
 
     # 添加数据集特定的参数
@@ -52,7 +52,7 @@ if __name__ == '__main__':
     # experiments = [...上面列表...]
 
     # 或者只运行你想运行的实验
-    dataset = 'LandingGearFull'
+    dataset = 'LandingGear'
     run_experiment(dataset, e_layers=2, d_model=64, d_ff=128, top_k=3, train_epochs=100)
 
     # if len(sys.argv) > 1:

@@ -4,7 +4,7 @@ import sys
 import torch
 
 # 设置环境变量
-os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2,3'
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 # 解决显存问题，该问题目前只在服务器上发现
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
@@ -24,15 +24,15 @@ def run_experiment(dataset_name, **kwargs):
         'python', '-u', run_py_path,
         '--task_name', 'classification',
         '--is_training', '1',
-        '--model', 'Transformer',
+        '--model', 'Crossformer',
         '--data', 'UEA',
         '--des', 'Exp',
         '--itr', '1',
         '--learning_rate', '0.001',
         '--patience', '10',
         '--batch_size', '8',
-        '--use_multi_gpu',
-        '--devices', '0,1,2,3',
+        # '--use_multi_gpu',
+        # '--devices', '0,1,2,3',
     ]
 
     # 添加数据集特定的参数

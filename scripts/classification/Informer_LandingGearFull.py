@@ -24,7 +24,7 @@ def run_experiment(dataset_name, **kwargs):
         'python', '-u', run_py_path,
         '--task_name', 'classification',
         '--is_training', '1',
-        '--model', 'Transformer',
+        '--model', 'Informer',
         '--data', 'UEA',
         '--des', 'Exp',
         '--itr', '1',

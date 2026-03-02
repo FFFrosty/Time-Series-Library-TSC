@@ -8,13 +8,16 @@ BASE_DIR = os.path.join('scripts', 'classification')
 
 # 在这里填入你要顺次运行的脚本列表（只需要写文件名）
 scripts_to_run = [
-    # 'DLinear_LandingGearFull.py',
-    # 'LightTS_LandingGearFull.py',
-    # 'Lstm_LandingGearFull.py',
+    'DLinear_LandingGearFull.py',
+    'LightTS_LandingGearFull.py',
+    'Lstm_LandingGearFull.py',
     'ResNet50_LandingGearFull.py',
     'TCN_LandingGearFull.py',
     'TimesNet_LandingGearFull.py',
     'Transformer_LandingGearFull.py',
+    'Informer_LandingGearFull.py',
+    'Crossformer_LandingGearFull.py',
+    'iTransformer_LandingGearFull.py',
     # 'exp3.py',
 ]
 
