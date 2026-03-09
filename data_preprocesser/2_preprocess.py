@@ -104,7 +104,7 @@ if __name__ == "__main__":
     else:
         print("跳过 LaLi 传感器的一阶差分处理。")
 
-    # 步骤 D: 时间窗口裁剪 (提取 1000 到 4000)
+    # 步骤 D: 时间窗口裁剪
     print(f"正在裁剪时间窗口 [{START_IDX}:{END_IDX}]...")
     X_cropped = X[:, :, START_IDX:END_IDX]
 
