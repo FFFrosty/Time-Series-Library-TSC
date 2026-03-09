@@ -43,21 +43,14 @@ def run_experiment(dataset_name, **kwargs):
 
 # 使用示例
 if __name__ == '__main__':
-    # 如果想运行所有实验，取消下面的注释
-    # experiments = [...上面列表...]
-
-    # 或者只运行你想运行的实验
+    # ✅ 默认使用原数据集，方便你单独测试这个脚本
     dataset = 'LandingGearFull'
-    run_experiment(dataset, e_layers=2, d_model=16, d_ff=32, top_k=3, train_epochs=30)
 
-    # if len(sys.argv) > 1:
-    #     # 从命令行参数指定数据集
-    #     dataset = sys.argv[1]
-    #     if dataset == 'EthanolConcentration':
-    #         run_experiment('EthanolConcentration', e_layers=2, d_model=16, d_ff=32, top_k=3, train_epochs=30)
-    #     elif dataset == 'FaceDetection':
-    #         run_experiment('FaceDetection', e_layers=2, d_model=64, d_ff=256, top_k=3, num_kernels=4, train_epochs=30)
-    #     # ... 添加其他数据集
-    # else:
-    #     print("请指定要运行的数据集，例如：")
-    #     print("python TimesNet.py EthanolConcentration")
+    # ✅ 如果从 run_all.py (或其他命令行方式) 传来了参数，则覆盖默认数据集
+    if len(sys.argv) > 1:
+        dataset = sys.argv[1]
+
+    print(f"🛠️  模型 TCN 准备就绪，即将处理数据集: {dataset}")
+
+    # 运行实验（直接传入替换好的 dataset 变量）
+    run_experiment(dataset, e_layers=2, d_model=16, d_ff=32, top_k=3, train_epochs=100)
