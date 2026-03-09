@@ -3,7 +3,8 @@ import pandas as pd
 import numpy as np
 
 # ================= 1. 配置参数 =================
-data_dir = r'D:\ExperimentData' # 替换为存放那 21 个 xlsx 文件的文件夹路径
+# data_dir = r'D:\ExperimentData' # 替换为存放那 21 个 xlsx 文件的文件夹路径
+data_dir = r'F:\时序数据\故障检测\仿真数据＋模型简单说明-2.5\仿真数据＋模型简单说明' # 替换为存放那 21 个 xlsx 文件的文件夹路径
 output_ts_file = "SensorData.ts"  # 输出的 .ts 文件名
 problem_name = "SensorClassification"
 
@@ -27,14 +28,14 @@ for c, label_ in enumerate(classes):
         # 假设你的 Excel 没有表头纯数据。如果有表头，请将 header=None 改为 header=0
         df = pd.read_excel(filepath, header=None)
 
-        # 当前 df 形状是 (7000, 200)，即 (时间步, 样本数)
-        # 我们需要转置它，变成 (200, 7000)，即 (样本数, 时间步)
+        # 当前 df 形状是 (7990, 200)，即 (时间步, 样本数)
+        # 我们需要转置它，变成 (200, 7990)，即 (样本数, 时间步)
         sensor_data_transposed = df.values.T
         class_data.append(sensor_data_transposed)
 
     # 将当前类别的 3 个传感器数据堆叠起来
-    # class_data 包含 3 个 (200, 7000) 的数组
-    # 堆叠后 class_X 形状变为 (200, 3, 7000)，完全符合 (N, M, T)
+    # class_data 包含 3 个 (200, 7990) 的数组
+    # 堆叠后 class_X 形状变为 (200, 3, 7990)，完全符合 (N, M, T)
     class_X = np.stack(class_data, axis=1)
     X_all.append(class_X)
 
@@ -44,7 +45,7 @@ for c, label_ in enumerate(classes):
     y_all.append(class_y)
 
 # 沿样本维度(axis=0)合并所有 7 个类别的数据
-X = np.concatenate(X_all, axis=0)  # 最终形状: (1400, 3, 7000)
+X = np.concatenate(X_all, axis=0)  # 最终形状: (1400, 3, 7990)
 y = np.concatenate(y_all, axis=0)  # 最终形状: (1400,)
 
 print(f"\n数据组装完成！")

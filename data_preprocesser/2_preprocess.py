@@ -3,14 +3,15 @@ from sklearn.model_selection import train_test_split
 
 # ================= 1. 配置参数 =================
 INPUT_FILE = "data_preprocesser/SensorData.ts"
-TRAIN_FILE = "data_preprocesser/LandingGear_TRAIN.ts"
-TEST_FILE = "data_preprocesser/LandingGear_TEST.ts"
+TRAIN_FILE = "data_preprocesser/LandingGearOrigin_TRAIN.ts"
+TEST_FILE = "data_preprocesser/LandingGearOrigin_TEST.ts"
 PROBLEM_NAME = "LandingGear"
 
-START_IDX = 1000
-END_IDX = 4000
+START_IDX = 0
+END_IDX = 7990
 TEST_SIZE = 0.2
 RANDOM_SEED = 42
+DIFF_FLAG = False  # 是否对 LaLi 通道进行一阶差分
 
 # 传感器通道索引 (假设顺序为 FirstA:0, LaLi:1, SecA:2)
 LALI_INDEX = 1
@@ -95,10 +96,13 @@ if __name__ == "__main__":
     X[:, 2, :] = np.clip(X[:, 2, :], -threshold_SA, threshold_SA)
 
     # 步骤 C: 对 LaLi 通道进行一阶差分 (保持原数组长度不变)
-    print("正在对 LaLi 传感器进行一阶差分...")
-    lali_data = X[:, LALI_INDEX, :]
-    # 这里你的写法很棒，prepend=0 是 Numpy 更现代的补齐方式
-    X[:, LALI_INDEX, :] = np.diff(lali_data, axis=1, prepend=0)
+    if DIFF_FLAG:
+        print("正在对 LaLi 传感器进行一阶差分...")
+        lali_data = X[:, LALI_INDEX, :]
+        # 这里你的写法很棒，prepend=0 是 Numpy 更现代的补齐方式
+        X[:, LALI_INDEX, :] = np.diff(lali_data, axis=1, prepend=0)
+    else:
+        print("跳过 LaLi 传感器的一阶差分处理。")
 
     # 步骤 D: 时间窗口裁剪 (提取 1000 到 4000)
     print(f"正在裁剪时间窗口 [{START_IDX}:{END_IDX}]...")
