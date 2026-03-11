@@ -7,11 +7,22 @@ import random
 import numpy as np
 import time
 
+def fix_random_seed(seed):
+    """固定所有相关的随机种子，确保实验 100% 可复现"""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    # 针对 PyTorch 底层 CuDNN 的确定性设置 (虽然 ML 基线不用 GPU 计算，但严谨起见一并加上)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
 if __name__ == '__main__':
-    fix_seed = 2021
-    random.seed(fix_seed)
-    torch.manual_seed(fix_seed)
-    np.random.seed(fix_seed)
+    # fix_seed = 2021
+    # random.seed(fix_seed)
+    # torch.manual_seed(fix_seed)
+    # np.random.seed(fix_seed)
 
     parser = argparse.ArgumentParser(description='TimesNet')
 
@@ -113,7 +124,7 @@ if __name__ == '__main__':
 
     # Augmentation
     parser.add_argument('--augmentation_ratio', type=int, default=0, help="How many times to augment")
-    parser.add_argument('--seed', type=int, default=2, help="Randomization seed")
+    parser.add_argument('--seed', type=int, default=2026, help="Randomization seed")
     parser.add_argument('--jitter', default=False, action="store_true", help="Jitter preset augmentation")
     parser.add_argument('--scaling', default=False, action="store_true", help="Scaling preset augmentation")
     parser.add_argument('--permutation', default=False, action="store_true",
@@ -174,6 +185,8 @@ if __name__ == '__main__':
     print('Args in experiment:')
     print_args(args)
 
+    # =========== 新增：在解析参数后立即固定全局种子 ===========
+    fix_random_seed(args.seed)
 
     if args.task_name == 'long_term_forecast':
         from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
