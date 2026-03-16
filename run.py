@@ -1,4 +1,5 @@
 import argparse
+import time
 import os
 import torch
 import torch.backends
@@ -199,6 +200,7 @@ if __name__ == '__main__':
         from exp.exp_long_term_forecasting import Exp_Long_Term_Forecast
         Exp = Exp_Long_Term_Forecast
 
+    run_id = time.strftime("%m%d_%H%M%S")
     if args.is_training:
         for ii in range(args.itr):
             # setting record of experiments
@@ -263,7 +265,8 @@ if __name__ == '__main__':
             args.factor,
             args.embed,
             args.distil,
-            args.des, ii)
+            args.des,
+            args.des, ii, run_id)
         
         # Override setting for specific model to ensure proper checkpoint naming and logging
         if args.model == 'MambaSingleLayer' and args.task_name == 'classification':
