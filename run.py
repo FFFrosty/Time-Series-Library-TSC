@@ -224,7 +224,7 @@ if __name__ == '__main__':
                 args.factor,
                 args.embed,
                 args.distil,
-                args.des, ii)
+                args.des, ii, run_id)
             
             # Override setting for specific model to ensure proper checkpoint naming and logging
             if args.model == 'MambaSingleLayer' and args.task_name == 'classification':
@@ -265,7 +265,6 @@ if __name__ == '__main__':
             args.factor,
             args.embed,
             args.distil,
-            args.des,
             args.des, ii, run_id)
         
         # Override setting for specific model to ensure proper checkpoint naming and logging
