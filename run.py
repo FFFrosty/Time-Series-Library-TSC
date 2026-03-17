@@ -157,6 +157,14 @@ if __name__ == '__main__':
     parser.add_argument('--top_p', type=float, default=0.5, help='Dynamic Routing in MoE')
     parser.add_argument('--pos', type=int, choices=[0, 1], default=1, help='Positional Embedding. Set pos to 0 or 1')
 
+    # pathformer
+    parser.add_argument('--k', type=int, default=3, help='for AMS blocks')
+    parser.add_argument('--patch_size_list', type=str, default="16,12,8,4,12,8,6,4,8,6,2,12", help='patch size list for AMS blocks')
+    parser.add_argument('--num_experts_list', type=str, default="4,4,4", help='num experts for AMS blocks')
+    parser.add_argument('--residual_connection', type=int, default=0)
+    parser.add_argument('--batch_norm', type=int, default=0)
+    parser.add_argument('--revin', type=int, default=1, help='whether to apply RevIN')
+
     args = parser.parse_args()
     if torch.cuda.is_available() and args.use_gpu:
         args.device = torch.device('cuda:{}'.format(args.gpu))
