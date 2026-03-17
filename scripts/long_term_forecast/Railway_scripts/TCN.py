@@ -21,7 +21,7 @@ def run_experiment(dataset_name, **kwargs):
         'python', '-u', run_py_path,
         '--task_name', 'long_term_forecast',
         '--is_training', '1',
-        '--model', 'PatchTST',
+        '--model', 'TCN',
         '--data', 'custom',
         '--feature', 'M',
         '--target', '40_C',
@@ -30,7 +30,7 @@ def run_experiment(dataset_name, **kwargs):
         '--pred_len', '96',
         '--des', 'Exp',
         '--itr', '1',
-        '--learning_rate', '0.001',
+        '--learning_rate', '0.0005',
         '--patience', '10',
         '--batch_size', '8',
         '--inverse',
@@ -61,4 +61,4 @@ if __name__ == '__main__':
 
     # 运行实验（直接传入替换好的 dataset 变量）
     run_experiment(dataset, e_layers=3, d_layers=1, factor=3, enc_in=55, dec_in=55, c_out=55,
-                   d_model=128, d_ff=256, top_k=3, train_epochs=100)
+                   d_model=64, d_ff=128, top_k=3, train_epochs=100)
