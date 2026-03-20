@@ -4,11 +4,11 @@ import numpy as np
 
 # ================= 1. 配置参数 =================
 # data_dir = r'D:\ExperimentData' # 替换为存放那 21 个 xlsx 文件的文件夹路径
-data_dir = r'F:\时序数据\故障检测\仿真数据＋模型简单说明-2.5\仿真数据＋模型简单说明' # 替换为存放那 21 个 xlsx 文件的文件夹路径
-output_ts_file = "SensorData.ts"  # 输出的 .ts 文件名
+data_dir = r'F:\时序数据\故障检测\3-20_data' # 替换为存放那 21 个 xlsx 文件的文件夹路径
+output_ts_file = "SensorData0320.ts"  # 输出的 .ts 文件名
 problem_name = "SensorClassification"
 
-sensors = ["FirstA", "LaLi", "SecA"]
+sensors = ["Fir_Acc", "Force", "Sec_Acc"]
 classes = ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7']
 
 X_all = []

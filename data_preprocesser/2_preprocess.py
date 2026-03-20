@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 
 # ================= 1. 配置参数 =================
-INPUT_FILE = "data_preprocesser/SensorData.ts"
+INPUT_FILE = "data_preprocesser/SensorData0320.ts"
 TRAIN_FILE = "data_preprocesser/LandingGearOrigin_TRAIN.ts"
 TEST_FILE = "data_preprocesser/LandingGearOrigin_TEST.ts"
 PROBLEM_NAME = "LandingGear"
