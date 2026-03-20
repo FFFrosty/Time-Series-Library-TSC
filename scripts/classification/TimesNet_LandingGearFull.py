@@ -50,7 +50,7 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         dataset = sys.argv[1]
 
-    print(f"🛠️  模型 TCN 准备就绪，即将处理数据集: {dataset}")
+    print(f"🛠️  模型 TimesNet 准备就绪，即将处理数据集: {dataset}")
 
     # 运行实验（直接传入替换好的 dataset 变量）
     run_experiment(dataset, e_layers=2, d_model=16, d_ff=32, top_k=3, train_epochs=100)

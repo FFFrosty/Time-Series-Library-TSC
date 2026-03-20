@@ -19,6 +19,9 @@ scripts_to_run = [
     'Informer_LandingGearFull.py',
     'Crossformer_LandingGearFull.py',
     'iTransformer_LandingGearFull.py',
+    'RandomForest_LandingGearFull.py',
+    'Rocket_LandingGearFull.py',
+    'XGBoost_LandingGearFull.py',
 ]
 
 def run_experiments(scripts, target_dataset):
