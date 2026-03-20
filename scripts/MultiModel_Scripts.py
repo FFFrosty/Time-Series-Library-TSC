@@ -3,7 +3,7 @@ import subprocess
 import time
 import sys
 
-BASE_DIR = os.path.join('scripts', 'classification')
+BASE_DIR = os.path.join('', 'scripts/classification')
 
 # ✅ 在这里统一设置你想跑的数据集名称
 TARGET_DATASET = 'LandingGearOrigin'
