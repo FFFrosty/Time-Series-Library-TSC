@@ -4,7 +4,7 @@ import sys
 import torch
 
 # 设置环境变量
-os.environ['CUDA_VISIBLE_DEVICES'] = '0,1,2'
+os.environ['CUDA_VISIBLE_DEVICES'] = '4,5,6,7'
 
 # 解决显存问题，该问题目前只在服务器上发现
 os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
