@@ -21,7 +21,7 @@ def run_experiment(dataset_name, **kwargs):
         'python', '-u', run_py_path,
         '--task_name', 'long_term_forecast',
         '--is_training', '1',
-        '--model', 'PathFormer',
+        '--model', 'PathFormer_no_intraatt',
         '--data', 'custom',
         '--feature', 'M',
         '--target', '40_C',

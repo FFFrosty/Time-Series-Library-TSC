@@ -21,7 +21,7 @@ def run_experiment(dataset_name, **kwargs):
         'python', '-u', run_py_path,
         '--task_name', 'long_term_forecast',
         '--is_training', '1',
-        '--model', 'PathFormer',
+        '--model', 'PathFormer_no_interatt',
         '--data', 'custom',
         '--feature', 'M',
         '--target', '40_C',
@@ -66,4 +66,4 @@ if __name__ == '__main__':
 
     # 运行实验（直接传入替换好的 dataset 变量）
     run_experiment(dataset, e_layers=1, d_layers=1, factor=3, enc_in=55, dec_in=55, c_out=55,
-                   d_model=8, d_ff=64, top_k=3, train_epochs=150)
+                   d_model=8, d_ff=64, top_k=3, train_epochs=1)
