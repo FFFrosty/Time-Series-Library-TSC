@@ -157,6 +157,14 @@ if __name__ == '__main__':
     parser.add_argument('--top_p', type=float, default=0.5, help='Dynamic Routing in MoE')
     parser.add_argument('--pos', type=int, choices=[0, 1], default=1, help='Positional Embedding. Set pos to 0 or 1')
 
+    # pathformer
+    parser.add_argument('--k', type=int, default=3, help='for AMS blocks')
+    parser.add_argument('--patch_size_list', type=str, default="16,12,8,4,12,8,6,4,8,6,2,12", help='patch size list for AMS blocks')
+    parser.add_argument('--num_experts_list', type=str, default="4,4,4", help='num experts for AMS blocks')
+    parser.add_argument('--residual_connection', type=int, default=0)
+    parser.add_argument('--batch_norm', type=int, default=0)
+    parser.add_argument('--revin', type=int, default=1, help='whether to apply RevIN')
+
     args = parser.parse_args()
     if torch.cuda.is_available() and args.use_gpu:
         args.device = torch.device('cuda:{}'.format(args.gpu))
@@ -205,7 +213,7 @@ if __name__ == '__main__':
         for ii in range(args.itr):
             # setting record of experiments
             exp = Exp(args)  # set experiments
-            setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}'.format(
+            setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}_expID{}'.format(
                 args.task_name,
                 args.model_id,
                 args.model,
@@ -224,14 +232,14 @@ if __name__ == '__main__':
                 args.factor,
                 args.embed,
                 args.distil,
-                args.des, ii)
+                args.des, ii, run_id)
             
             # Override setting for specific model to ensure proper checkpoint naming and logging
             if args.model == 'MambaSingleLayer' and args.task_name == 'classification':
                 setting = f'{args.task_name}_CLS_{args.model_id}_{args.model}_{args.data}_ft{args.features}' \
                         + f'_sl{args.seq_len}_ll{args.label_len}_pl{args.pred_len}_dm{args.d_model}_ds{args.d_ff}' \
                         + f'_expand{args.expand}_dc{args.d_conv}_nk{args.num_kernels}' \
-                        + f'_tvdt{int(args.tv_dt)}_tvB{int(args.tv_B)}_tvC{int(args.tv_C)}_useD{int(args.use_D)}_{args.des}_{ii}'
+                        + f'_tvdt{int(args.tv_dt)}_tvB{int(args.tv_B)}_tvC{int(args.tv_C)}_useD{int(args.use_D)}_{args.des}_{ii}_{run_id}'
 
             print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
             exp.train(setting)
@@ -246,7 +254,7 @@ if __name__ == '__main__':
     else:
         exp = Exp(args)  # set experiments
         ii = 0
-        setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}'.format(
+        setting = '{}_{}_{}_{}_ft{}_sl{}_ll{}_pl{}_dm{}_nh{}_el{}_dl{}_df{}_expand{}_dc{}_fc{}_eb{}_dt{}_{}_{}_expID{}'.format(
             args.task_name,
             args.model_id,
             args.model,
@@ -265,7 +273,6 @@ if __name__ == '__main__':
             args.factor,
             args.embed,
             args.distil,
-            args.des,
             args.des, ii, run_id)
         
         # Override setting for specific model to ensure proper checkpoint naming and logging
@@ -273,7 +280,7 @@ if __name__ == '__main__':
             setting = f'{args.task_name}_CLS_{args.model_id}_{args.model}_{args.data}_ft{args.features}' \
                     + f'_sl{args.seq_len}_ll{args.label_len}_pl{args.pred_len}_dm{args.d_model}_ds{args.d_ff}' \
                     + f'_expand{args.expand}_dc{args.d_conv}_nk{args.num_kernels}' \
-                    + f'_tvdt{args.tv_dt}_tvB{args.tv_B}_tvC{args.tv_C}_useD{int(args.use_D)}_{args.des}_{ii}'
+                    + f'_tvdt{args.tv_dt}_tvB{args.tv_B}_tvC{args.tv_C}_useD{int(args.use_D)}_{args.des}_{ii}_{run_id}'
 
         print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
         exp.test(setting, test=1)
