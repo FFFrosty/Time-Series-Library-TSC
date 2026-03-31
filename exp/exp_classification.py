@@ -1,6 +1,6 @@
 from data_provider.data_factory import data_provider
 from exp.exp_basic import Exp_Basic
-from utils.tools import EarlyStopping, adjust_learning_rate, cal_accuracy
+from utils.tools import EarlyStopping, adjust_learning_rate, cal_accuracy, save_args_to_txt, save_args_to_json
 import torch
 import torch.nn as nn
 from torch import optim
@@ -139,6 +139,8 @@ class Exp_Classification(Exp_Basic):
 
         best_model_path = path + '/' + 'checkpoint.pth'
         self.model.load_state_dict(torch.load(best_model_path))
+        save_args_to_txt(self.args, path)
+        save_args_to_json(self.args, path)
 
         return self.model
 
@@ -191,5 +193,8 @@ class Exp_Classification(Exp_Basic):
 
         np.save(folder_path + 'pred.npy', predictions)
         np.save(folder_path + 'true.npy', trues)
+
+        save_args_to_txt(self.args, folder_path)
+        save_args_to_json(self.args, folder_path)
 
         return

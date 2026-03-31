@@ -1,5 +1,5 @@
 import os
-
+import json
 import numpy as np
 import torch
 import matplotlib.pyplot as plt
@@ -118,3 +118,58 @@ def adjustment(gt, pred):
 
 def cal_accuracy(y_pred, y_true):
     return np.mean(y_pred == y_true)
+
+
+def save_args_to_txt(args, save_dir):
+    """将超参数以友好的格式保存到 txt 文件中"""
+    file_path = os.path.join(save_dir, 'args_config.txt')
+
+    with open(file_path, 'w', encoding='utf-8') as f:
+        f.write("=" * 50 + "\n")
+        f.write(" " * 15 + "EXPERIMENT ARGUMENTS\n")
+        f.write("=" * 50 + "\n\n")
+
+        # 将参数按字母顺序排序，看起来更清爽
+        for key, value in sorted(vars(args).items()):
+            f.write(f"{key:<25}: {value}\n")
+
+    # print(f"🚀 超参数已安全保存至: {file_path}")
+
+
+class NumpyEncoder(json.JSONEncoder):
+    """
+    一个自定义的 JSON 编码器，用于将 NumPy 数据类型转换为标准 Python 类型。
+    """
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NumpyEncoder, self).default(obj)
+
+
+def save_args_to_json(args, save_dir):
+    """将超参数保存为标准 JSON，自动过滤掉 device 等无法序列化的对象"""
+    if not os.path.exists(save_dir):
+        os.makedirs(save_dir)
+    file_path = os.path.join(save_dir, 'args_config.json')
+
+    args_dict = vars(args)
+    safe_dict = {}
+    # 核心逻辑：逐个试探，只保留安全的参数
+    for key, value in args_dict.items():
+        try:
+            # 试探性地对这个 value 进行 JSON 转换
+            json.dumps(value, cls=NumpyEncoder)
+            safe_dict[key] = value
+        except TypeError:
+            # 如果抛出 TypeError，说明是 device, function, logger 等奇怪的对象，直接丢弃
+            # print(f"   [自动过滤] 参数 '{key}' (类型: {type(value).__name__}) 无法序列化，已跳过。")
+            continue
+    # 将清洗后的干净字典写入文件
+    with open(file_path, 'w', encoding='utf-8') as f:
+        json.dump(safe_dict, f, indent=4, ensure_ascii=False, cls=NumpyEncoder)
+
+    # print(f"✅ 超参数已安全清洗并保存至: {file_path}")

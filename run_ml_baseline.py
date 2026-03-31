@@ -3,6 +3,7 @@ import os
 import numpy as np
 from tqdm import tqdm
 import time
+import joblib
 
 # ================= 替换为分类器 =================
 from sklearn.ensemble import RandomForestClassifier, HistGradientBoostingClassifier
@@ -241,6 +242,20 @@ def main():
 
     # 如果你需要保存原始标签，可以将上面的 Y_test 改回 Y_test_raw，
     # 并使用 label_encoder.inverse_transform(Y_pred) 还原预测标签后再保存。
+
+    # 保存机器学习模型
+    path = os.path.join(args.checkpoints, setting)
+    if not os.path.exists(path):
+        os.makedirs(path)
+    if args.model == 'XGBoost':
+        model.save_model(path+"/"+"xgb_model.json")
+    elif args.model == 'Rocket':
+        joblib.dump(model, path+"/"+"rocket_model.joblib")
+    elif args.model == 'RandomForest':
+    # 1. 保存 Random Forest
+        joblib.dump(model, path+"/"+"rf_model.joblib")
+    else:
+        print('Unsupported model, parameters is not saved.')
 
 
 if __name__ == '__main__':
