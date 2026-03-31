@@ -51,86 +51,174 @@ class DLProfiler:
         self.args = args
         self.device = torch.device(device if torch.cuda.is_available() else 'cpu')
 
-        # 按照 TSLib 统一维度: [Batch, Seq_Len, Channels]
-        # 注意：这里我们生成全 1 矩阵或正态分布矩阵作为 Dummy Data
-        self.x_enc = torch.randn(args.batch_size, args.seq_len, args.enc_in).to(self.device)
+        # 唤醒 CUDA 上下文 (极度重要：避免首次测算显存时把 CUDA 初始化的几百兆算进去)
+        if self.device.type == 'cuda':
+            _ = torch.zeros(1).to(self.device)
+            torch.cuda.synchronize()
 
-        # 大部分分类任务在 TSLib 中不需要 decoder 输入，这里设为 None 或 dummy
+        # 延迟初始化数据，初始设为 None
+        self.x_enc = None
         self.x_mark_enc = None
         self.x_dec = None
         self.x_mark_dec = None
+
+    def _generate_data(self):
+        """延迟生成 Dummy 数据到指定设备"""
+        if self.x_enc is None:
+            self.x_enc = torch.randn(self.args.batch_size, self.args.seq_len, self.args.enc_in).to(self.device)
+            # 大部分分类任务在 TSLib 中不需要 decoder 输入
+            self.x_mark_enc = torch.ones(self.args.batch_size, self.args.seq_len).to(self.device)
+            self.x_dec = None
+            self.x_mark_dec = None
 
     def _get_file_size_mb(self, file_path):
         if not os.path.exists(file_path):
             return 0.0
         return os.path.getsize(file_path) / (1024 ** 2)
 
-    def profile_model(self, model_class, checkpoint_path=None, model_name="DL_Model"):
+    def profile_model(self, model_class, checkpoint_path=None, cal_method="fvcore"):
         print(f"\n" + "=" * 55)
-        print(f"🚀 Profiling DL Model: {model_name.upper()}")
+        print(f"🚀 Profiling Method of MAC and Params: {cal_method.upper()}")
         print(f"📊 Input Shape: [Batch={self.args.batch_size}, SeqLen={self.args.seq_len}, Channels={self.args.enc_in}]")
         print("=" * 55)
 
-        # 1. 实例化模型并加载权重
-        model = model_class(self.args).float().to(self.device)
-
-        # 测算磁盘大小
+        # 1. 测算磁盘大小
         if checkpoint_path and os.path.exists(checkpoint_path):
             disk_size = self._get_file_size_mb(checkpoint_path)
             print(f"[1] 磁盘占用 (Checkpoint Size): {disk_size:.2f} MB")
-
-            # 加载权重 (如果是 strictly load，建议加上 strict=False 容错)
-            try:
-                model.load_state_dict(torch.load(checkpoint_path, map_location=self.device))
-            except Exception as e:
-                print(f"    [警告] 权重加载失败，使用随机初始化权重继续测算: {e}")
         else:
-            print(f"[1] 磁盘占用: 找不到 {checkpoint_path}，当前使用随机初始化权重测算。")
+            print(f"[1] 磁盘占用: 找不到权重，当前使用随机初始化测算。")
+
+        # ================= 显存精细剥离核心逻辑 =================
+        if self.device.type == 'cuda':
+            torch.cuda.empty_cache()
+            mem_baseline = torch.cuda.memory_allocated(self.device) / (1024 ** 2)
+        else:
+            mem_baseline = 0
+
+        # 2a. 测算【输入数据静态显存】
+        self._generate_data()
+        if self.device.type == 'cuda':
+            mem_after_data = torch.cuda.memory_allocated(self.device) / (1024 ** 2)
+            data_static_vram = mem_after_data - mem_baseline
+        else:
+            data_static_vram = 0
+        print(f"[2a] 输入数据占用 (Data VRAM): {data_static_vram:.2f} MB")
+
+        # 2b. 实例化模型并测算【模型纯净显存】
+        model = model_class(self.args).float().to(self.device)
+
+        if checkpoint_path and os.path.exists(checkpoint_path):
+            try: # 多卡训练参数名会出现module.前缀，这里做了一个鲁棒加载
+                # 1. 先把带有 module. 前缀的原始权重加载进内存
+                state_dict = torch.load(checkpoint_path, map_location=self.device)
+                # 2. 创建一个干净的新字典
+                from collections import OrderedDict
+                new_state_dict = OrderedDict()
+                # 3. 遍历原权重，把 'module.' 前缀统统切掉
+                for k, v in state_dict.items():
+                    name = k[7:] if k.startswith('module.') else k  # 截取掉前面7个字符 'module.'
+                    new_state_dict[name] = v
+                # 4. 把洗干净的权重装进单卡模型里
+                model.load_state_dict(new_state_dict)
+                # print(f"    ✅ 权重加载成功！(已自动剥离 DataParallel 壳)")
+            except Exception as e:
+                print(f"    [警告] 权重加载失败: {e}")
+        del state_dict
+        del new_state_dict
+        if self.device.type == 'cuda':
+            torch.cuda.empty_cache()
+
+        if self.device.type == 'cuda':
+            mem_after_model = torch.cuda.memory_allocated(self.device) / (1024 ** 2)
+            model_static_vram = mem_after_model - mem_after_data
+        else:
+            model_static_vram = 0
+        print(f"[2b] 模型纯净占用 (Model Weights VRAM): {model_static_vram:.2f} MB")
+        # ========================================================
 
         model.eval()  # 切换到推理模式
 
-        # 2. 测算静态显存 (仅加载模型参数所占的显存)
-        torch.cuda.empty_cache()
-        torch.cuda.reset_peak_memory_stats(self.device)
-        static_vram = torch.cuda.memory_allocated(self.device) / (1024 ** 2)
-        print(f"[2] 静态显存 (Model Weights VRAM): {static_vram:.2f} MB")
-
         # 3. 测算计算量(FLOPs)和参数量(Params)
-        try:
-            # thop 的 inputs 需要是一个 tuple，对齐 forward(x_enc, x_mark_enc, x_dec, x_mark_dec)
-            macs, params = profile(model, inputs=(self.x_enc, self.x_mark_enc, self.x_dec, self.x_mark_dec),
-                                   verbose=False)
-            macs_str, params_str = clever_format([macs, params], "%.3f")
-            # 通常 MACs * 2 约等于 FLOPs
-            print(f"[3] 理论计算量 (MACs): {macs_str}")
-            print(f"[4] 参数总量 (Params): {params_str}")
-        except Exception as e:
-            print(f"[3/4] 理论计算量与参数量: 【动态图测算受限】(thop 无法追踪该计算流)\n    -> 报错原因: {e}")
+        if cal_method == 'fvcore':
+            try:
+                from fvcore.nn import FlopCountAnalysis, parameter_count
 
-        # 4. 预热 (Warm-up) - 极其重要，为了 CUDA 的懒加载机制
+                # 构造输入元组 (过滤掉 None，因为 fvcore 对 None 的解析比较严格)
+                # inputs = tuple([x for x in (self.x_enc, self.x_mark_enc, self.x_dec, self.x_mark_dec) if x is not None])
+                inputs = (self.x_enc, self.x_mark_enc, self.x_dec, self.x_mark_dec)
+
+                # 使用 fvcore 进行底层追踪
+                flops_analyzer = FlopCountAnalysis(model, inputs)
+
+                # 屏蔽掉 fvcore 烦人的 warning 输出
+                flops_analyzer.unsupported_ops_warnings(False)
+                flops_analyzer.uncalled_modules_warnings(False)
+
+                macs = flops_analyzer.total()
+                params = sum(parameter_count(model).values())
+
+                # 格式化输出 (转换为 M 或 G)
+                def format_number(num):
+                    if num > 1e9:
+                        return f"{num / 1e9:.3f} G"
+                    elif num > 1e6:
+                        return f"{num / 1e6:.3f} M"
+                    else:
+                        return f"{num / 1000:.3f} K"
+
+                print(f"[3] 理论计算量 (MACs): {format_number(macs)}")
+                print(f"[4] 参数总量 (Params): {format_number(params)}")
+
+            except ImportError:
+                print("[3/4] 警告: 未安装 fvcore，请运行 `pip install fvcore`")
+            except Exception as e:
+                # 连 fvcore 都崩了的话，提供一个纯原生的参数量保底方案
+                fallback_params = sum(p.numel() for p in model.parameters())
+                print(f"[3] 理论计算量 (MACs): 【动态图测算极其受限，无法追踪】")
+                print(f"[4] 参数总量 (Params): {fallback_params / 1e6:.3f} M (原生 API 保底统计)")
+                print(f"    -> 报错原因: {e}")
+        else:
+            try:
+                macs, params = profile(model, inputs=(self.x_enc, self.x_mark_enc, self.x_dec, self.x_mark_dec),
+                                       verbose=False)
+                macs_str, params_str = clever_format([macs, params], "%.3f")
+                print(f"[3] 理论计算量 (MACs): {macs_str}")
+                print(f"[4] 参数总量 (Params): {params_str}")
+            except Exception as e:
+                print(f"[3/4] 理论计算量与参数量: 【动态图测算受限】\n    -> 原因: {e}")
+
+        # 4. 预热 (Warm-up)
         print(f"[*] 正在 GPU 上进行 Warm-up 预热 (50 次)...")
         with torch.no_grad():
             for _ in range(50):
                 _ = model(self.x_enc, self.x_mark_enc, self.x_dec, self.x_mark_dec)
-        torch.cuda.synchronize()  # 确保预热任务在 GPU 上完全执行完毕
+        if self.device.type == 'cuda':
+            torch.cuda.synchronize()
 
         # 5. 测算单样本/Batch前向耗时与峰值显存
         n_runs = 100
-        torch.cuda.reset_peak_memory_stats(self.device)
-        mem_before_infer = torch.cuda.memory_allocated(self.device)
+        if self.device.type == 'cuda':
+            torch.cuda.reset_peak_memory_stats(self.device)
+            mem_before_infer = torch.cuda.memory_allocated(self.device)
 
         start_time = time.perf_counter()
 
-        with torch.no_grad():  # 推理必须关闭梯度，否则显存会爆炸
+        with torch.no_grad():
             for _ in range(n_runs):
                 _ = model(self.x_enc, self.x_mark_enc, self.x_dec, self.x_mark_dec)
 
-        torch.cuda.synchronize()  # 必须加上同步原语，否则计时不准！
+        if self.device.type == 'cuda':
+            torch.cuda.synchronize()
+
         end_time = time.perf_counter()
 
         # 获取峰值显存
-        peak_mem_during_infer = torch.cuda.max_memory_allocated(self.device)
-        infer_extra_vram = (peak_mem_during_infer - mem_before_infer) / (1024 ** 2)
+        if self.device.type == 'cuda':
+            peak_mem_during_infer = torch.cuda.max_memory_allocated(self.device)
+            infer_extra_vram = (peak_mem_during_infer - mem_before_infer) / (1024 ** 2)
+        else:
+            infer_extra_vram = 0
 
         # 耗时计算
         total_time_ms = (end_time - start_time) * 1000
@@ -142,7 +230,7 @@ class DLProfiler:
         if self.args.batch_size == 1:
             print(f"[6] 单样本前向耗时 (Latency): {avg_time_per_sample_ms:.4f} ms")
         else:
-            print(f"[6] Batch前向耗时: {avg_time_per_batch_ms:.4f} ms (折合单样本: {avg_time_per_sample_ms:.4f} ms)")
+            print(f"[6] Batch前向耗时: {avg_time_per_batch_ms:.4f} ms (单样本分摊: {avg_time_per_sample_ms:.4f} ms)")
 
 
 class LazyModelDict(dict):
@@ -208,8 +296,17 @@ class LazyModelDict(dict):
 # 执行测试的样例逻辑
 # ==========================================
 base_path = 'checkpoints/'
-check_id = 'classification_LandingGearOrigin_DLinear_UEA_ftM_sl7990_ll48_pl0_dm128_nh8_el3_dl1_df256_expand2_dc4_fc1_ebtimeF_dtTrue_Exp_0_tm0331_115354'
-model_name = 'DLinear'
+check_id = 'classification_LandingGearOrigin_Lstm_UEA_ftM_sl7990_ll48_pl0_dm512_nh8_el2_dl1_df128_expand2_dc4_fc1_ebtimeF_dtTrue_Exp_0_tm0331_121630'
+check_id = 'classification_LandingGearOrigin_DLinear_UEA_ftM_sl7990_ll48_pl0_dm128_nh8_el3_dl1_df256_expand2_dc4_fc1_ebtimeF_dtTrue_Exp_0_tm0331_121226'
+check_id = 'classification_LandingGearOrigin_LightTS_UEA_ftM_sl7990_ll48_pl0_dm64_nh8_el2_dl1_df128_expand2_dc4_fc1_ebtimeF_dtTrue_Exp_0_tm0331_121452'
+check_id = 'classification_LandingGearOrigin_ResNet50_UEA_ftM_sl7990_ll48_pl0_dm128_nh8_el3_dl1_df256_expand2_dc4_fc1_ebtimeF_dtTrue_Exp_0_tm0331_122021'
+check_id = 'classification_LandingGearOrigin_TCN_UEA_ftM_sl7990_ll48_pl0_dm128_nh8_el2_dl1_df2048_expand2_dc100_fc1_ebtimeF_dtTrue_Exp_0_tm0331_122244'
+check_id = 'classification_LandingGearOrigin_Transformer_UEA_ftM_sl7990_ll48_pl0_dm64_nh8_el2_dl1_df128_expand2_dc4_fc1_ebtimeF_dtTrue_Exp_0_tm0331_123744'
+check_id = 'classification_LandingGearOrigin_Informer_UEA_ftM_sl7990_ll48_pl0_dm64_nh8_el2_dl1_df128_expand2_dc4_fc1_ebtimeF_dtTrue_Exp_0_tm0331_131008'
+check_id = 'classification_LandingGearOrigin_Crossformer_UEA_ftM_sl7990_ll48_pl0_dm64_nh8_el2_dl1_df128_expand2_dc4_fc1_ebtimeF_dtTrue_Exp_0_tm0331_131933'
+check_id = 'classification_LandingGearOrigin_TimesNet_UEA_ftM_sl7990_ll48_pl0_dm16_nh8_el2_dl1_df32_expand2_dc4_fc1_ebtimeF_dtTrue_Exp_0_tm0331_123259'
+check_id = 'classification_LandingGearOrigin_iTransformer_UEA_ftM_sl7990_ll48_pl0_dm64_nh8_el2_dl1_df128_expand2_dc4_fc1_ebtimeF_dtTrue_Exp_0_tm0331_132200'
+MAC_cal_method = 'fvcore' # fvcore or thop
 if __name__ == "__main__":
     args_path = base_path + check_id + '/args_config.json'
     # 1. 构造实验参数
@@ -219,27 +316,14 @@ if __name__ == "__main__":
     # 2. 初始化 Profiler
     profiler = DLProfiler(args, device='cuda:0')
 
-
-    # 3. 假设我们要测试之前写的那个 Model
-    # 引入你本地的代码： from models.Pathformer import Model as PathformerModel
+    # 3. Model导入
     model_dict = LazyModelDict()
     Model = model_dict[args.model]
-
-    # # 【示例占位】：这里用一个假的 nn.Module 演示接口调用
-    # class MockTSLibModel(nn.Module):
-    #     def __init__(self, configs):
-    #         super().__init__()
-    #         self.linear = nn.Linear(configs.seq_len * configs.enc_in, configs.num_class)
-    #
-    #     def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, mask=None):
-    #         x = x_enc.reshape(x_enc.shape[0], -1)
-    #         return self.linear(x)
-
 
     # 4. 执行 Profile
     path = base_path + check_id + '/checkpoint.pth'
     profiler.profile_model(
         model_class=Model,
         checkpoint_path=path,
-        model_name=model_name
+        cal_method=MAC_cal_method
     )
